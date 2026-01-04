@@ -7,9 +7,15 @@ import sys
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-BOM_ROOT = "https://www.bom.gov.au"
+BOM_ROOT = "https://reg.bom.gov.au"
 MT_STAPYLTON_RADAR = "/products/IDR663.loop.shtml"
 IMAGE_REGEXP = re.compile(r'theImageNames\[\d+\]\s*=\s*"(/radar/)([^"\\]+\.png)"')
+
+
+def parse_image_paths(html: str) -> list[str]:
+    """Return relative image paths embedded in the BOM HTML page."""
+
+    return [prefix + filename for prefix, filename in IMAGE_REGEXP.findall(html)]
 
 def fetch_radar_frames(output_directory: Path) -> None:
     """Fetch radar frames into ``output_directory``.
@@ -31,11 +37,11 @@ def fetch_radar_frames(output_directory: Path) -> None:
 
     output_directory.mkdir(parents=True, exist_ok=True)
 
-    for match in IMAGE_REGEXP.finditer(html):
-        prefix, filename = match.groups()
+    for image_path in parse_image_paths(html):
+        filename = Path(image_path).name
         destination = output_directory / filename
         image_request = Request(
-            BOM_ROOT + prefix + filename, headers={"User-Agent": "bom-fetcher/1.0"}
+            BOM_ROOT + image_path, headers={"User-Agent": "bom-fetcher/1.0"}
         )
         try:
             with urlopen(image_request) as image_response:
